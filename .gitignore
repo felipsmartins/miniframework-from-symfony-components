@@ -1,0 +1,4 @@
+/vendor/
+/*.pyc
+/fabfile.py
+/.idea
