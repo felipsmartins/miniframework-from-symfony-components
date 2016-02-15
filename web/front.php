@@ -5,14 +5,14 @@ $loader = require __DIR__ . '/../autoload.php';
 
 use Symfony\Component\HttpFoundation\Request;
 
-
 $pagesdir =  __DIR__ . '/../src/pages';
 $request  = Request::createFromGlobals();
-$routes  = include __DIR__ . '/../src/app.php';
 
-#TOFIX: hmm... Isso deveria está aqui mesmo?	
+# TOFIX: mover para local apropriado depois	
 $request->attributes->add(['pagesdir' => $pagesdir]);
 
+# Dependency injection container
+$serviceContainer = include __DIR__ . '/../src/container.php';
 
-$framework = new Simplex\Framework($routes);
+$framework = $serviceContainer->get('framework');
 $framework->handle($request)->send();
