@@ -4,10 +4,10 @@ $loader = require __DIR__ . '/../autoload.php';
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Matcher\UrlMatcher;
-use Symfony\Component\Routing\RequestContext;
+use Symfony\Component\Routing;
 use Symfony\Component\HttpKernel;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 function render_template(Request $request)
 {	
@@ -20,17 +20,33 @@ function render_template(Request $request)
 
 $pagesdir =  __DIR__ . '/../src/pages';
 $request  = Request::createFromGlobals();
+$requestStack = new RequestStack();
 $routes  = include __DIR__ . '/../src/app.php';
-$context = new RequestContext();
-$matcher  = new UrlMatcher($routes, $context);
-$resolver = new HttpKernel\Controller\ControllerResolver();	
-	
+
+$context = new Routing\RequestContext();
+$matcher = new Routing\Matcher\UrlMatcher($routes, $context);
+$resolver = new HttpKernel\Controller\ControllerResolver();
+
+#TOFIX: hmm... Isso deveria está aqui mesmo?	
+$request->attributes->add(['pagesdir' => $pagesdir]);
+
+$errorHandler = function (HttpKernel\Exception\FlattenException $exception) {
+    $msg = 'Something went wrong! ('.$exception->getMessage().')';
+
+    return new Response($msg, $exception->getStatusCode());
+};
+
+
 # Listeners registry
 $dispatcher = new EventDispatcher();
-$dispatcher->addSubscriber(new Simplex\ContentLengthListener());
-$dispatcher->addSubscriber(new Simplex\GoogleListener());
+$dispatcher->addSubscriber(
+	new HttpKernel\EventListener\RouterListener($matcher, $requestStack));
+$dispatcher->addSubscriber(new HttpKernel\EventListener\ExceptionListener(
+	'Calendar\\Controller\\ErrorController::exceptionAction'));
+$dispatcher->addSubscriber(new HttpKernel\EventListener\ResponseListener('UTF-8'));
+$dispatcher->addSubscriber(new Simplex\StringResponseListener());
 
-$framework = new Simplex\Framework($dispatcher, $matcher, $resolver); 
-$response = $framework->handle($request, ['pagesdir' => $pagesdir]);
+$framework = new Simplex\Framework($dispatcher, $resolver);
 
+$response = $framework->handle($request);
 $response->send();
